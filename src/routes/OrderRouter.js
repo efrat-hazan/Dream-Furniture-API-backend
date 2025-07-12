@@ -7,8 +7,8 @@ const OrderRouter = express.Router();
 OrderRouter.use(jwtMiddleware);
 OrderRouter.get("/all",managerMiddleware,OrderController.getList);
 OrderRouter.get("/:orderId",OrderController.getByOrderId);
-OrderRouter.get("/myOrders/userId",OrderController.getByUserId)
+OrderRouter.get("/",OrderController.getByUserId);
 OrderRouter.post('/', OrderController.addOrder);
-
+OrderRouter.put("/:orderId",OrderController.updateOrderStatus);
 
 export default OrderRouter

@@ -6,7 +6,7 @@ const ProductRouter = express.Router();
 
 // נתיבים ציבוריים - לא דורשים אימות
 ProductRouter.get('/:categoryId', productController.getByCategoryId);
-ProductRouter.get('/:categoryId/:itemId', productController.getByItemId);
+ProductRouter.get('/product/:itemId', productController.getByItemId);
 
 // מכאן והלאה - נתיבים שדורשים אימות
 ProductRouter.use(jwtMiddleware,managerMiddleware);

@@ -60,7 +60,7 @@ if (!authHeader) {
         }
 
         const token = authHeader.slice(7);
-         const secret = process.env.JWT_SECRET || "8t7r5v@#hk"; // עדיף להשתמש ב-environment variable
+         const secret = process.env.JWT_SECRET; // עדיף להשתמש ב-environment variable
         const decoded = jwt.verify(token, secret);
         if(decoded.role!='manager')
             res.status(401).json({ message: "You do not have access permission." })

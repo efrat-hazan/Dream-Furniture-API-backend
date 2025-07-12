@@ -15,8 +15,14 @@ const OrderController={
    },
    getByUserId:async (req, res)=>{
       try{
+          const userid = req.user.id;
+           if (!userid) {
+                return res.status(400).json({
+                    message: "חסר מזהה משתמש"
+                });
+            }
          let orders=[];
-         orders= await OrderModel.find({userId: req.params.userId})
+         orders= await OrderModel.find({userId:userid })
          res.json({orders});
       }
       catch(e){
@@ -24,17 +30,19 @@ const OrderController={
       }
    },
    getByOrderId: async (req, res)=>{
-      try{
-         const order= await OrderModel.find({orderId:req.params.orderId});
-         res.json(order);
-      }
-      catch(e){
-         res.status(400).json({message:e.message});
-      }
+      try {
+    const order = await OrderModel.findOne({ orderid: req.params.orderId });
+    if (!order) {
+      return res.status(404).json({ message: "ההזמנה לא נמצאה" });
+    }
+    res.status(200).json({ order });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
    },
    addOrder: async(req, res)=>{
         try {
-            const { userId } = req.body;
+          const userId = req.user.id;
 
             if (!userId) {
                 return res.status(400).json({
@@ -103,6 +111,28 @@ const OrderController={
                 error: e.message
             });
         }
-   }
+   },
+   updateOrderStatus: async (req, res) => {
+      try {
+        const { orderId } = req.params;
+        if (!orderId) {
+          return res.status(400).json({ message: "חסר מזהה הזמנה" });
+        }
+        const order = await OrderModel.findOneAndUpdate(
+          { orderid: orderId },
+          { statusOrder: true },
+          { new: true }
+        );
+        if (!order) {
+          return res.status(404).json({ message: "ההזמנה לא נמצאה" });
+        }
+        res.status(200).json({
+          message: "החבילה הגיעה",
+          order
+        });
+      } catch (e) {
+        res.status(500).json({ message: e.message });
+      }
+    }
 }
 export default OrderController
