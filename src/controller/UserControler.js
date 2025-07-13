@@ -8,7 +8,7 @@ const UsersController={
    getList: async(req, res)=>{
       let users=[]
       try{
-         users= await UserModel.find();
+         users= await UserModel.find().select('-password -role');
          res.json({users});
       }
       catch(e){
@@ -75,7 +75,8 @@ const UsersController={
             user: {
                 id: user._id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role:user.role
             }
         });
     }

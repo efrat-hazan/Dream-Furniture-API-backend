@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const productSchema=mongoose.Schema({
-   ptoductId:{
+   productId:{
         type:String,
         required:true
     },
@@ -17,10 +17,10 @@ const productSchema=mongoose.Schema({
     },
     discount: Number,
 
-   image:{
-        type:String,
-        required:true
-    },
+    image: {
+    data: Buffer,
+    contentType: String
+  },
     categoryId:{
         type:Number,
         required:true
