@@ -68,12 +68,10 @@ const productController = {
     },
     addProduct: async(req, res) => {
     try {
-
-        console.log("I'm hear");
-        
+        console.log("I'm hear");       
         // קבלת הנתונים מהבקשה
         const { productId, name, description, price, discount, categoryId } = req.body;
-         const imageFile = req.file;
+        const imageFile = req.file;
         // בדיקת תקינות הנתונים החיוניים
         if (!productId || !name || !price || !imageFile  || !categoryId) {
             return res.status(400).json({ 

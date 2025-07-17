@@ -2,10 +2,11 @@
 import UserModel from "../models/UserModel.js";
 import jwt from 'jsonwebtoken';
 import ProductsModel from "../models/ProductsModel.js";
-import productController from "./productConroller.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 const UsersController={
-   getList: async(req, res)=>{
+    getList: async(req, res)=>{// all users for manager
       let users=[]
       try{
          users= await UserModel.find().select('-password -role');
@@ -22,20 +23,14 @@ const UsersController={
          console.log(req.body);
          const email=data.email;
          const name= data.name;
-         const password= data.password;
-         let role;
-         try{
-            role=data.role
-         }
-         catch{
-            role='user'
-         }
-         const user= await UserModel.find({email:email});
+         const password= data.password;         
+
+         const user= await UserModel.find({email:email});//one account per user
          if(user.length > 0)
             res.status(401).json({message:"המשתמש כבר רשום"})
 
          const nameExists = await UserModel.find({ name });
-         if (nameExists.length > 0) // בדיקה אם שם המשתמש קיים
+         if (nameExists.length > 0) // checking if the username exists
             return res.status(401).json({ message: "שם משתמש כבר קיים" });
 
          const newUser=await UserModel.create({name,password,email,role});
@@ -46,29 +41,29 @@ const UsersController={
       }
    },
    login: async(req, res)=>{
- try {
+        try {
          const dataBody = req.body; 
          if(dataBody.name==undefined||dataBody.password==undefined)
             res.status(401).json({massege:"No suitable data was sent."}) 
-         const user = await UserModel.findOne({ name: dataBody.name, password: dataBody.password });
 
-         if (!user) 
+         const user = await UserModel.findOne({ name: dataBody.name, password: dataBody.password });
+         if (!user)// There is no such user.
             return res.status(401).json({ message: "שם משתמש או סיסמה לא נכונים" });
         
-          const token = jwt.sign(
+          const token = jwt.sign( //token authorization
             {
                id: user._id,
                 name: user.name,
                 email: user.email,
                 role:user.role,
             },
-            process.env.JWT_SECRET || "8t7r5v@#hk",  // אותו סוד כמו ב-middleware
+            process.env.JWT_SECRET,  
             { 
-                expiresIn: '24h' // תוקף הטוקן - 24 שעות
+                expiresIn: '24h' // Token validity - 24 hours
             }
         );
 
-        // החזרת התשובה עם הטוקן ופרטי המשתמש
+        // Return the response with the token and user details
         res.json({ 
             message: "התחברת בהצלחה",
             token,
@@ -88,98 +83,85 @@ const UsersController={
         });
     }
    },
-   getCart: async(req,res)=>{
-      try{
-         const myUser = await UserModel.findOne({_id:req.user.id})
-            .populate('cart.productId');  // populate product details
-         
-         if(!myUser) {
-            return res.status(404).json({message: "המשתמש לא נמצא"});
-         }
-         
-         // Transform cart items to include current product details
-         const transformedCart = myUser.cart.map(item => ({
-            id: item.productId._id,
-            name: item.productId.name,
-            description: item.productId.description,
-            price: item.productId.price,
-            discount: item.productId.discount,
-            image: item.productId.image,
-            quantity: item.quantity,
-            // Calculate current price with discount
-            currentPrice: item.productId.price * (1 - (item.productId.discount || 0) / 100)
-         }));
+   getCart: async (req, res) => {
+  try {
+    const myUser = await UserModel.findOne({ _id: req.user.id }).populate('cart.productId');
 
-         res.status(200).json({
-            cart: transformedCart,
-            // Calculate total
-            total: transformedCart.reduce((sum, item) => 
-                sum + (item.currentPrice * item.quantity), 0)
-         });
-      }
-      catch(error) {
-         console.error('Error in getCart:', error);
-         res.status(500).json({ message: 'שגיאה בהוצאת סל הקניות', error: error.message });
-      }
-   },
+    if (!myUser) {
+      return res.status(404).json({ message: "המשתמש לא נמצא" });
+    }
+
+    // Transform cart items to include current product details, with image URL
+    const transformedCart = myUser.cart.map(item => ({
+      id: item.productId._id,
+      name: item.productId.name,
+      description: item.productId.description,
+      price: item.productId.price,
+      discount: item.productId.discount,
+      quantity: item.quantity,
+      image: `/products/image/${item.productId._id}`,
+      currentPrice: item.productId.price * (1 - (item.productId.discount || 0) / 100)
+    }));
+
+    const total = transformedCart.reduce(
+      (sum, item) => sum + (item.currentPrice * item.quantity),
+      0
+    );
+
+    res.status(200).json({
+      cart: transformedCart,
+      total: total
+    });
+  } catch (error) {
+    console.error('Error in getCart:', error);
+    res.status(500).json({
+      message: 'שגיאה בהוצאת סל הקניות',
+      error: error.message
+    });
+  }
+},
    addToCart: async(req, res) => {
     try {
-        console.log('Request body:', req.body); // לוג של הנתונים שהתקבלו
         const { id, quantity = 1 } = req.body;
         const userId = req.user.id;
-
-        console.log('Looking for product with ID:', id);
-        // תיקון: שימוש ב-findById במקום findOne
+  
         const product = await ProductsModel.findById(id);
-        console.log('Found product:', product);
-
         if (!product) {
             return res.status(404).json({
                 message: "המוצר המבוקש לא נמצא"
             });
         }
-        // בדיקת תקינות הכמות
+        // Checking the correctness of the quantity
         if (quantity <= 0) {
             return res.status(400).json({
                 message: "כמות המוצר חייבת להיות חיובית"
             });
         }
-
-        console.log('Looking for user with ID:', userId);
         const user = await UserModel.findById(userId);
-        console.log('Found user:', user);
-
         if (!user) {
             return res.status(404).json({
                 message: "משתמש לא נמצא"
             });
         }
 
-        // תיקון: שימוש ב-id במקום productId
-        const existingCartItem = user.cart.find(
+        const existingCartItem = user.cart.find(//Search whether the product is already in the cart
             item => item.productId.toString() === id
         );
 
-        console.log('Existing cart item:', existingCartItem);
 
-        if (existingCartItem) {
+        if (existingCartItem) {//If so, only the quantity is updated.
             existingCartItem.quantity = quantity;
-            console.log('Updated quantity:', existingCartItem.quantity);
         } else {
-            user.cart.push({
+            user.cart.push({//If not added as a new product
                 productId: id,
                 quantity: quantity
             });
-            console.log('Added new item to cart');
         }
 
-        await user.save();
-        console.log('User saved successfully');
-        
+        await user.save();        
         // Return updated cart with populated product details
         const updatedUser = await UserModel.findById(userId)
             .populate('cart.productId');
-
         // Transform cart items to include current prices
         const transformedCart = updatedUser.cart.map(item => {
             const cartItem = {
@@ -188,11 +170,10 @@ const UsersController={
                 description: item.productId.description,
                 price: item.productId.price,
                 discount: item.productId.discount,
-                image: item.productId.image,
+                image: `/products/image/${item.productId.image}` ,
                 quantity: item.quantity,
                 currentPrice: item.productId.price * (1 - (item.productId.discount || 0) / 100)
             };
-            console.log('Transformed cart item:', cartItem);
             return cartItem;
         });
 
@@ -216,36 +197,28 @@ const UsersController={
 },
 removeFromCart: async(req, res) => {
     try {
-        console.log('Request body:', req.body); // לוג של הנתונים שהתקבלו
         const { id } = req.params;
         const userId = req.user.id;
 
         if (!id) {
             return res.status(400).json({ message: "חסר מזהה מוצר למחיקה" });
         }
-
-        console.log('Looking for user with ID:', userId);
         const user = await UserModel.findById(userId);
-        console.log('Found user:', user);
-
         if (!user) {
             return res.status(404).json({ message: "משתמש לא נמצא" });
         }
-
-        // מציאת אינדקס המוצר בסל
+     // Finding the product index in the cart
         const itemIndex = user.cart.findIndex(item => item.productId.toString() === id);
-        console.log('Item index in cart:', itemIndex);
 
         if (itemIndex === -1) {
             return res.status(404).json({ message: "המוצר לא נמצא בסל" });
         }
-
-        // הסרת המוצר מהסל
+        // Removing the product from the cart
         user.cart.splice(itemIndex, 1);
         await user.save();
         console.log('Item removed and user saved');
 
-        // החזרת סל מעודכן
+        // Return an updated basket
         const updatedUser = await UserModel.findById(userId).populate('cart.productId');
         const transformedCart = updatedUser.cart.map(item => ({
             id: item.productId._id,
@@ -253,12 +226,12 @@ removeFromCart: async(req, res) => {
             description: item.productId.description,
             price: item.productId.price,
             discount: item.productId.discount,
-            image: item.productId.image,
+           image: `/products/image/${item.productId._id}` ,
             quantity: item.quantity,
             currentPrice: item.productId.price * (1 - (item.productId.discount || 0) / 100)
         }));
+
         const total = transformedCart.reduce((sum, item) => sum + (item.currentPrice * item.quantity), 0);
-        console.log('Cart after removal:', transformedCart);
         res.status(200).json({
             message: "המוצר הוסר מהסל בהצלחה",
             cart: transformedCart,
@@ -274,41 +247,30 @@ removeFromCart: async(req, res) => {
 },
 decreaseCartItemQuantity: async(req, res) => {
     try {
-        console.log('Request body:', req.body);
         const { id } = req.body;
         const userId = req.user.id;
 
         if (!id) {
             return res.status(400).json({ message: "חסר מזהה מוצר לעדכון כמות" });
         }
-
-        console.log('Looking for user with ID:', userId);
         const user = await UserModel.findById(userId);
-        console.log('Found user:', user);
-
         if (!user) {
             return res.status(404).json({ message: "משתמש לא נמצא" });
         }
-
+     // Finding the product index in the cart
         const itemIndex = user.cart.findIndex(item => item.productId.toString() === id);
-        console.log('Item index in cart:', itemIndex);
-
         if (itemIndex === -1) {
             return res.status(404).json({ message: "המוצר לא נמצא בסל" });
         }
 
         if (user.cart[itemIndex].quantity > 1) {
             user.cart[itemIndex].quantity -= 1;
-            console.log('Decreased quantity:', user.cart[itemIndex].quantity);
         } else {
             user.cart.splice(itemIndex, 1);
-            console.log('Removed item from cart because quantity was 1');
         }
 
         await user.save();
-        console.log('User saved successfully after decrease');
-
-        // החזרת סל מעודכן
+        // Return an updated basket
         const updatedUser = await UserModel.findById(userId).populate('cart.productId');
         const transformedCart = updatedUser.cart.map(item => ({
             id: item.productId._id,
@@ -316,10 +278,11 @@ decreaseCartItemQuantity: async(req, res) => {
             description: item.productId.description,
             price: item.productId.price,
             discount: item.productId.discount,
-            image: item.productId.image,
+            image: `/products/image/${item.productId._id}`,
             quantity: item.quantity,
             currentPrice: item.productId.price * (1 - (item.productId.discount || 0) / 100)
         }));
+        
         const total = transformedCart.reduce((sum, item) => sum + (item.currentPrice * item.quantity), 0);
         res.status(200).json({
             message: "הכמות עודכנה/הפריט הוסר מהסל בהצלחה",

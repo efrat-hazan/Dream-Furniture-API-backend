@@ -8,12 +8,12 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 const ProductRouter = express.Router();
 
-// נתיבים ציבוריים - לא דורשים אימות
+// Public paths - do not require authorization
 ProductRouter.get('/:categoryId', productController.getByCategoryId);
 ProductRouter.get('/product/:itemId', productController.getByItemId);
 ProductRouter.get('/image/:id', productController.getImage);
 
-// מכאן והלאה - נתיבים שדורשים אימות
+// Paths that require authorization
 ProductRouter.use(jwtMiddleware,managerMiddleware);
 ProductRouter.post('/', upload.single("image"), productController.addProduct);
 

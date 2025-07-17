@@ -28,13 +28,13 @@ const orderSchema=mongoose.Schema({
    },
    date: {
       type: Date,
-      default: Date.now    // יגדיר אוטומטית את התאריך הנוכחי בעת יצירת ההזמנה
+      default: Date.now    // Will automatically set the current date when creating the order
    },
    destinationDate:{
       type:Date,
       default: function() {
             const date = new Date();
-            date.setDate(date.getDate() + 20); // מוסיף 20 יום לתאריך הנוכחי
+            date.setDate(date.getDate() + 20); // Adds 20 days to the current date
             return date;
         }
    },
