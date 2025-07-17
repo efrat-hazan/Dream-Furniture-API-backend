@@ -13,5 +13,5 @@ This is a Node.js REST API for a fictional furniture store called "Dream Furnitu
 - **JWT** – Authentication
 
   
-## 📦 Installation
+
 
